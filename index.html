@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sipariş Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+<style>
+  :root{
+    --bg: #eef5f3;
+    --bg-2: #e4f0f6;
+    --surface: #ffffff;
+    --ink: #1e2a2f;
+    --ink-soft: #647178;
+    --ink-faint: #9aa5aa;
+    --accent: #12a878;
+    --accent-dark: #0d8562;
+    --accent-soft: #e3f7ee;
+    --blue: #2f7de1;
+    --blue-soft: #e8f1fd;
+    --amber: #e08a2c;
+    --amber-soft: #fdf1e2;
+    --danger: #e0503c;
+    --danger-soft: #fdece9;
+    --border: #e3e9e8;
+    --shadow: 0 1px 2px rgba(30,42,47,0.04), 0 8px 24px rgba(30,42,47,0.07);
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 12% 8%, var(--bg-2), transparent 45%),
+      radial-gradient(circle at 90% 15%, #eafaf1, transparent 40%),
+      var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 32px 16px 100px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap{ max-width: 640px; margin: 0 auto; }
+
+  /* HEADER */
+  .header{
+    text-align: center;
+    margin-bottom: 28px;
+  }
+  h1{
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: clamp(26px, 6vw, 34px);
+    margin: 0 0 6px;
+    color: var(--ink);
+    letter-spacing: -0.5px;
+  }
+  .sub{
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    margin: 0;
+    font-weight: 500;
+  }
+
+  /* SETUP NOTICE */
+  .setup-note{
+    background: var(--danger-soft);
+    border: 1px solid #f3c9c0;
+    padding: 14px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    color: var(--ink);
+  }
+  .setup-note code{
+    background: rgba(30,42,47,0.08);
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 12px;
+  }
+
+  /* LIST SECTION */
+  .list-head{
+    text-align: center;
+    margin: 0 0 6px;
+  }
+  .list-head h2{
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.2px;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .count{
+    font-size: 13px;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+
+  /* SEARCH */
+  .search-box{
+    max-width: 420px;
+    margin: 16px auto 0;
+    position: relative;
+  }
+  .search-box input{
+    width: 100%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 11px 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    outline: none;
+    box-shadow: var(--shadow);
+    transition: border-color 0.15s ease;
+  }
+  .search-box input:focus{ border-color: var(--accent); }
+  .search-box input::placeholder{ color: var(--ink-faint); }
+
+  #list{ margin-top: 22px; }
+
+  .empty{
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--ink-faint);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  /* FLOATING ADD BUTTON */
+  .fab{
+    position: fixed;
+    right: 22px;
+    bottom: 26px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(18,168,120,0.4), 0 2px 6px rgba(18,168,120,0.3);
+    z-index: 50;
+    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fab:hover{ background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(18,168,120,0.45); }
+  .fab:active{ transform: scale(0.94); }
+
+  /* MODAL */
+  .modal-overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(20,28,31,0.45);
+    backdrop-filter: blur(2px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal-overlay.open{ display: flex; }
+  .modal-close{
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: var(--bg);
+    border: none;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    font-size: 15px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-close:hover{ background: var(--danger-soft); color: var(--danger); }
+
+  /* FORM — the entry card */
+  .ticket{
+    background: var(--surface);
+    border-radius: 22px;
+    padding: 28px 24px 24px;
+    box-shadow: 0 20px 50px rgba(20,28,31,0.25);
+    position: relative;
+    max-width: 420px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .ticket h2{
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    margin: 0 0 18px;
+    color: var(--ink);
+  }
+
+  label{
+    display:block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .field{ margin-bottom: 16px; }
+  input[type=text], input[type=url], select{
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 13px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  input:focus, select:focus{
+    border-color: var(--accent);
+    background: var(--surface);
+  }
+  .row2{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  button.submit{
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: transform 0.12s ease, background 0.12s ease;
+  }
+  button.submit:hover{ background: var(--accent-dark); }
+  button.submit:active{ transform: scale(0.98); }
+  button.submit:disabled{ opacity: 0.5; cursor: default; }
+
+  /* ITEM CARD */
+  .item{
+    background: var(--surface);
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .item-top{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .item-name{
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 16.5px;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .item-name a{
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .item-name a:hover{ color: var(--accent-dark); }
+  .item-meta{
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+  .item-actions{
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .edit-btn, .del-btn{
+    background: var(--bg);
+    border: none;
+    color: var(--ink-soft);
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .edit-btn:hover{ background: var(--blue-soft); color: var(--blue); }
+  .del-btn:hover{ background: var(--danger-soft); color: var(--danger); }
+
+  /* STATUS PROGRESS BAR */
+  .route{
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .stop{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .bar{
+    height: 6px;
+    border-radius: 4px;
+    background: var(--border);
+  }
+  .stop.done .bar{ background: var(--accent); }
+  .stop.current .bar{ background: var(--amber); }
+  .stop-label{
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+  .stop.done .stop-label{ color: var(--accent-dark); }
+  .stop.current .stop-label{ color: var(--amber); }
+
+  select.status-select{
+    margin-top: 4px;
+    font-size: 12.5px;
+    padding: 8px 10px;
+    width: auto;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  footer{
+    text-align: center;
+    margin-top: 36px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+
+  @media (max-width: 420px){
+    .row2{ grid-template-columns: 1fr; }
+    .stop-label{ font-size: 8.5px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>📦 Sipariş Takip</h1>
+  </div>
+
+  <div id="setupNote" class="setup-note" style="display:none">
+    ⚠ Bağlantı kurulmadı — Supabase bilgilerini <code>SUPABASE_URL</code> ve <code>SUPABASE_ANON_KEY</code> alanlarına girmen gerekiyor.
+  </div>
+
+  <div class="list-head">
+    <span class="count" id="countLabel">0 kayıt · 0 adet geldi</span>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Ürün adı veya notta ara...">
+  </div>
+
+  <div id="list"></div>
+
+  <footer>paylaşılan liste · herkes görür &amp; ekler</footer>
+</div>
+
+<button class="fab" id="fabBtn" title="Yeni kayıt ekle">+</button>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="ticket">
+    <button class="modal-close" id="modalClose" title="Kapat">✕</button>
+    <h2 id="modalTitle">Yeni Kayıt</h2>
+    <form id="addForm">
+      <div class="field">
+        <label for="name">Ürün Adı</label>
+        <input type="text" id="name" placeholder="ör. Kablosuz Kulaklık" required>
+      </div>
+      <div class="field">
+        <label for="link">Ürün Linki</label>
+        <input type="url" id="link" placeholder="https://..." required>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="status">Başlangıç Durumu</label>
+          <select id="status">
+            <option value="verildi">Sipariş Verildi</option>
+            <option value="hazirlaniyor">Hazırlanıyor</option>
+            <option value="kargoda">Kargoda</option>
+            <option value="geldi">Geldi</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="note">Not (opsiyonel)</label>
+          <input type="text" id="note" placeholder="ör. Trendyol">
+        </div>
+      </div>
+      <button type="submit" class="submit" id="submitBtn">Deftere Ekle</button>
+    </form>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   SUPABASE BAĞLANTI BİLGİLERİ
+   ========================================================= */
+const SUPABASE_URL = 'https://wvkeaemgeonrzaslvjir.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_-P6qij_8aOwGPpVbTJouuA_vo8q7x_i';
+
+const STATUSES = [
+  { key: 'verildi',      label: 'Verildi' },
+  { key: 'hazirlaniyor',  label: 'Hazırlanıyor' },
+  { key: 'kargoda',       label: 'Kargoda' },
+  { key: 'geldi',         label: 'Geldi' }
+];
+
+let db = null;
+const isConfigured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
+
+if (isConfigured) {
+  if (!window.supabase) {
+    document.getElementById('setupNote').style.display = 'block';
+    document.getElementById('setupNote').innerHTML = '⚠ Supabase kütüphanesi yüklenemedi.<br><br>İnternet bağlantını kontrol et veya sayfayı bir yerel sunucu üzerinden aç.';
+    document.getElementById('submitBtn').disabled = true;
+  } else {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} else {
+  document.getElementById('setupNote').style.display = 'block';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+const listEl = document.getElementById('list');
+const countLabel = document.getElementById('countLabel');
+const addForm = document.getElementById('addForm');
+const fabBtn = document.getElementById('fabBtn');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalClose = document.getElementById('modalClose');
+const searchInput = document.getElementById('searchInput');
+const modalTitle = document.getElementById('modalTitle');
+const submitBtn = document.getElementById('submitBtn');
+
+let allItems = [];
+let editingId = null;
+
+function openModal(){
+  modalOverlay.classList.add('open');
+  document.getElementById('name').focus();
+}
+function closeModal(){
+  modalOverlay.classList.remove('open');
+  editingId = null;
+  addForm.reset();
+  document.getElementById('status').value = 'verildi';
+  modalTitle.textContent = 'Yeni Kayıt';
+  submitBtn.textContent = 'Deftere Ekle';
+}
+function openEditModal(item){
+  editingId = item.id;
+  document.getElementById('name').value = item.name || '';
+  document.getElementById('link').value = item.link || '';
+  document.getElementById('status').value = item.status || 'verildi';
+  document.getElementById('note').value = item.note || '';
+  modalTitle.textContent = 'Kaydı Düzenle';
+  submitBtn.textContent = 'Kaydı Güncelle';
+  modalOverlay.classList.add('open');
+  document.getElementById('name').focus();
+}
+fabBtn.addEventListener('click', () => { editingId = null; openModal(); });
+modalClose.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalOverlay.classList.contains('open')) closeModal();
+});
+
+searchInput.addEventListener('input', () => renderList());
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function renderRoute(currentStatus){
+  const currentIdx = STATUSES.findIndex(s => s.key === currentStatus);
+  return STATUSES.map((s, i) => {
+    let cls = '';
+    if (i < currentIdx) cls = 'done';
+    else if (i === currentIdx) cls = 'current';
+    return `
+      <div class="stop ${cls}">
+        <div class="bar"></div>
+        <div class="stop-label">${s.label}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderItem(item){
+  const date = item.created_at ? new Date(item.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+  return `
+    <div class="item" data-id="${item.id}">
+      <div class="item-top">
+        <div>
+          <p class="item-name"><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.name)}</a></p>
+          <p class="item-meta">${date}${item.note ? ' · ' + escapeHtml(item.note) : ''}</p>
+        </div>
+        <div class="item-actions">
+          <button class="edit-btn" onclick='openEditModal(${JSON.stringify(item).replace(/'/g, "&#39;")})' title="Düzenle">✎</button>
+          <button class="del-btn" onclick="deleteItem('${item.id}')" title="Sil">✕</button>
+        </div>
+      </div>
+      <div class="route">${renderRoute(item.status)}</div>
+      <select class="status-select" onchange="updateStatus('${item.id}', this.value)">
+        ${STATUSES.map(s => `<option value="${s.key}" ${s.key === item.status ? 'selected' : ''}>${s.label}</option>`).join('')}
+      </select>
+    </div>
+  `;
+}
+
+async function loadItems(){
+  if (!db) return;
+
+  let data, error;
+  try {
+    const res = await db
+      .from('siparisler')
+      .select('*')
+      .order('created_at', { ascending: false });
+    data = res.data;
+    error = res.error;
+  } catch (err) {
+    console.error('Yükleme hatası:', err);
+    listEl.innerHTML = `<div class="empty">Bağlantı hatası: ${escapeHtml(err.message)}<br>Tarayıcı konsolunu (F12) kontrol et.</div>`;
+    return;
+  }
+
+  if (error){
+    console.error('Sorgu hatası:', error);
+    listEl.innerHTML = `<div class="empty">Kayıtlar yüklenemedi: ${escapeHtml(error.message)}<br>"siparisler" tablosunu oluşturduğundan emin ol.</div>`;
+    return;
+  }
+
+  allItems = data || [];
+  renderList();
+}
+
+function renderList(){
+  const q = searchInput.value.trim().toLocaleLowerCase('tr');
+  const filtered = q
+    ? allItems.filter(item =>
+        (item.name || '').toLocaleLowerCase('tr').includes(q) ||
+        (item.note || '').toLocaleLowerCase('tr').includes(q))
+    : allItems;
+
+  const arrivedCount = allItems.filter(item => item.status === 'geldi').length;
+
+  if (allItems.length === 0){
+    listEl.innerHTML = `<div class="empty">Henüz kayıt yok.<br>Sağ alttaki + butonuyla ilk siparişini ekle.</div>`;
+    countLabel.textContent = '0 kayıt · 0 adet geldi';
+    return;
+  }
+
+  if (filtered.length === 0){
+    listEl.innerHTML = `<div class="empty">"${escapeHtml(searchInput.value)}" ile eşleşen kayıt yok.</div>`;
+    countLabel.textContent = `${allItems.length} kayıt · ${arrivedCount} adet geldi`;
+    return;
+  }
+
+  countLabel.textContent = `${allItems.length} kayıt · ${arrivedCount} adet geldi`;
+  listEl.innerHTML = filtered.map(renderItem).join('');
+}
+
+async function updateStatus(id, newStatus){
+  if (!db) return;
+  try {
+    const { error } = await db.from('siparisler').update({ status: newStatus }).eq('id', id);
+    if (error) { console.error(error); alert('Durum güncellenemedi: ' + error.message); return; }
+    await loadItems();
+  } catch (err) {
+    console.error(err);
+    alert('Bir hata oluştu: ' + err.message);
+  }
+}
+
+async function deleteItem(id){
+  if (!db) return;
+  if (!confirm('Bu kaydı silmek istediğine emin misin?')) return;
+  try {
+    const { error } = await db.from('siparisler').delete().eq('id', id);
+    if (error) { console.error(error); alert('Silinemedi: ' + error.message); return; }
+    await loadItems();
+  } catch (err) {
+    console.error(err);
+    alert('Bir hata oluştu: ' + err.message);
+  }
+}
+
+addForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!db) {
+    alert('Supabase bağlantısı kurulmadı. Sayfanın üstündeki uyarıyı kontrol et.');
+    return;
+  }
+
+  const name = document.getElementById('name').value.trim();
+  const link = document.getElementById('link').value.trim();
+  const status = document.getElementById('status').value;
+  const note = document.getElementById('note').value.trim();
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = editingId ? 'Güncelleniyor...' : 'Ekleniyor...';
+
+  try {
+    const { error } = editingId
+      ? await db.from('siparisler').update({ name, link, status, note }).eq('id', editingId)
+      : await db.from('siparisler').insert([{ name, link, status, note }]);
+
+    if (error){
+      console.error('Kaydetme hatası:', error);
+      alert('Kaydedilemedi: ' + error.message + '\n\nSupabase\'de "siparisler" tablosunu oluşturduğundan emin ol (SQL Editor).');
+      return;
+    }
+
+    closeModal();
+    await loadItems();
+  } catch (err) {
+    console.error('Beklenmeyen hata:', err);
+    alert('Bir hata oluştu: ' + err.message + '\n\nTarayıcı konsolunu (F12) kontrol et.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingId ? 'Kaydı Güncelle' : 'Deftere Ekle';
+  }
+});
+
+loadItems();
+</script>
+</body>
+</html>
